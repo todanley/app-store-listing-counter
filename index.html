@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>App Store Listing Counter</title>
+  <meta name="description" content="Live App Store and Google Play listing character counters, with correct CJK counting and an App Store keyword checker. Runs in your browser.">
+  <meta name="color-scheme" content="light">
+  <style>
+:root {
+  --bg: #efe8dc;
+  --bg-2: #e6ddd0;
+  --ink: #1c1914;
+  --muted: #5f584c;
+  --paper: #fffaf3;
+  --paper-2: #f7f0e6;
+  --line: #d9cebd;
+  --apple: #0b62d6;
+  --play: #0b7a45;
+  --accent: var(--apple);
+  --red: #b42318;
+  --red-bg: #fde8e6;
+  --amber: #8a5a00;
+  --amber-bg: #f8e8c8;
+  --ok: #0b7a45;
+  --ok-bg: #e3f4ea;
+  --shadow: 0 16px 40px rgba(60, 40, 16, 0.08);
+  --radius: 16px;
+  --font: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", "Segoe UI Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background:
+    radial-gradient(900px 400px at 0% 0%, rgba(11, 98, 214, 0.07), transparent 55%),
+    radial-gradient(800px 360px at 100% 0%, rgba(11, 122, 69, 0.07), transparent 50%),
+    var(--bg);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+body[data-store="play"] {
+  --accent: var(--play);
+  background:
+    radial-gradient(900px 400px at 0% 0%, rgba(11, 122, 69, 0.08), transparent 55%),
+    radial-gradient(800px 360px at 100% 0%, rgba(11, 98, 214, 0.05), transparent 50%),
+    var(--bg);
+}
+.app { width: min(880px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 64px; }
+header.top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
+.brand { display: flex; gap: 14px; align-items: flex-start; }
+.mark {
+  width: 44px; height: 44px; flex: none; border-radius: 12px;
+  background: var(--paper); border: 1px solid var(--line);
+  display: grid; place-items: center; box-shadow: var(--shadow);
+}
+.brand h1 { margin: 0 0 4px; font-size: 1.35rem; letter-spacing: -0.02em; font-weight: 700; }
+.brand .tag { margin: 0; color: var(--muted); font-size: 0.95rem; max-width: 54ch; }
+.lang-toggle {
+  display: inline-flex; background: var(--paper); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px; gap: 2px; flex: none;
+}
+.lang-toggle button {
+  appearance: none; border: 0; background: transparent; color: var(--muted);
+  font: inherit; font-size: 0.85rem; padding: 6px 12px; border-radius: 999px;
+  cursor: pointer; min-height: 32px;
+}
+.lang-toggle button[aria-pressed="true"] { background: var(--ink); color: #fffaf3; font-weight: 650; }
+.store-tabs {
+  display: flex; gap: 8px; margin-bottom: 16px; background: var(--paper);
+  border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: var(--shadow);
+}
+.store-tabs button {
+  flex: 1; appearance: none; border: 0; background: transparent; color: var(--muted);
+  font: inherit; font-weight: 650; padding: 10px 12px; border-radius: 10px;
+  cursor: pointer; min-height: 44px;
+}
+.store-tabs button[aria-selected="true"] { background: var(--accent); color: #fff; }
+.panel { display: none; }
+.panel.active { display: block; }
+.field {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 14px 12px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.field.over { border-color: #e3b2ad; background: #fff6f5; }
+.field.near { border-color: #e3cc8c; }
+.field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.field label { font-weight: 700; font-size: 0.95rem; }
+.counter { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 0.95rem; color: var(--ok); white-space: nowrap; }
+.field.near .counter { color: var(--amber); }
+.field.over .counter { color: var(--red); }
+.remain { font-weight: 500; color: var(--muted); font-size: 0.82rem; margin-left: 6px; }
+.field input, .field textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 11px;
+  min-height: 44px;
+}
+.field textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
+.field textarea.tall { min-height: 180px; }
+.bar { height: 6px; background: #e8dfd2; border-radius: 999px; margin-top: 8px; overflow: hidden; }
+.bar > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width 0.15s ease; }
+.field.near .bar > span { background: #d49212; }
+.field.over .bar > span { background: var(--red); width: 100% !important; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.btn {
+  appearance: none; border: 1px solid var(--line); background: var(--paper);
+  color: var(--ink); font: inherit; font-size: 0.88rem; padding: 8px 12px;
+  border-radius: 10px; cursor: pointer; min-height: 40px;
+}
+.btn:hover { border-color: #c2b49d; }
+.btn.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 700; }
+.btn:focus-visible, .lang-toggle button:focus-visible, .store-tabs button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.issues {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.issues li {
+  background: var(--amber-bg);
+  color: #5c3d00;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  font-size: 0.88rem;
+}
+.issues li.dup { background: var(--red-bg); color: var(--red); }
+.cleaned {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  background: var(--paper-2);
+  border-radius: 10px;
+  padding: 8px 10px;
+  word-break: break-word;
+  display: none;
+}
+.cleaned.show { display: block; }
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: #fffaf3; padding: 8px 14px; border-radius: 999px;
+  font-size: 0.88rem; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+  z-index: 5;
+}
+.toast.show { opacity: 1; }
+footer.site {
+  margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 0.9rem;
+}
+footer.site strong { color: var(--ink); font-weight: 650; }
+footer.site .links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 8px 0; }
+footer.site a { color: var(--accent); text-decoration: none; }
+footer.site a:hover { text-decoration: underline; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+@media (max-width: 640px) {
+  .app { width: min(880px, calc(100% - 20px)); padding-top: 18px; }
+  header.top { flex-wrap: wrap; }
+  .field textarea.tall { min-height: 140px; }
+}
+
+  </style>
+</head>
+<body data-store="ios">
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+          <rect x="4" y="4" width="18" height="18" rx="5" stroke="#1c1914" stroke-width="1.6"/>
+          <path d="M8 16V10h3.2c1.6 0 2.5.8 2.5 2s-.9 2-2.5 2H9.2M8 16h4.6c1.7 0 2.7.8 2.7 2.1 0 1.3-1 2.1-2.8 2.1H8" stroke="#0b62d6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1 data-i18n="title">App Store Listing Counter</h1>
+        <p class="tag" data-i18n="tagline">Live character counts for App Store and Google Play listings, with correct CJK counting and an App Store keyword checker. Everything stays in this browser.</p>
+      </div>
+    </div>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="zh" aria-pressed="false">中文</button>
+    </div>
+  </header>
+
+  <div class="store-tabs" role="tablist" aria-label="Store">
+    <button type="button" role="tab" id="tabIos" aria-controls="panelIos" aria-selected="true" data-store="ios">App Store</button>
+    <button type="button" role="tab" id="tabPlay" aria-controls="panelPlay" aria-selected="false" data-store="play">Google Play</button>
+  </div>
+
+  <div id="panelIos" class="panel active" role="tabpanel" aria-labelledby="tabIos">
+    <div class="field" data-field="iosName" data-limit="30">
+      <div class="field-head">
+        <label for="iosName" data-i18n="iosName">Name</label>
+        <div class="counter" aria-live="polite"><span class="nums">0 / 30</span><span class="remain"></span></div>
+      </div>
+      <input id="iosName" maxlength="200" autocomplete="off">
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <div class="row-actions"><button type="button" class="btn copy" data-copy="iosName" data-i18n="copy">Copy</button></div>
+    </div>
+    <div class="field" data-field="iosSubtitle" data-limit="30">
+      <div class="field-head">
+        <label for="iosSubtitle" data-i18n="iosSubtitle">Subtitle</label>
+        <div class="counter"><span class="nums">0 / 30</span><span class="remain"></span></div>
+      </div>
+      <input id="iosSubtitle" maxlength="200" autocomplete="off">
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <div class="row-actions"><button type="button" class="btn copy" data-copy="iosSubtitle" data-i18n="copy">Copy</button></div>
+    </div>
+    <div class="field" data-field="iosPromo" data-limit="170">
+      <div class="field-head">
+        <label for="iosPromo" data-i18n="iosPromo">Promotional text</label>
+        <div class="counter"><span class="nums">0 / 170</span><span class="remain"></span></div>
+      </div>
+      <textarea id="iosPromo"></textarea>
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <div class="row-actions"><button type="button" class="btn copy" data-copy="iosPromo" data-i18n="copy">Copy</button></div>
+    </div>
+    <div class="field" data-field="iosKeywords" data-limit="100">
+      <div class="field-head">
+        <label for="iosKeywords" data-i18n="iosKeywords">Keywords</label>
+        <div class="counter"><span class="nums">0 / 100</span><span class="remain"></span></div>
+      </div>
+      <textarea id="iosKeywords" placeholder="photo,editor,filter"></textarea>
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <ul class="issues" id="kwIssues"></ul>
+      <div class="cleaned" id="kwCleaned"></div>
+      <div class="row-actions">
+        <button type="button" class="btn copy" data-copy="iosKeywords" data-i18n="copy">Copy</button>
+        <button type="button" class="btn" id="cleanKw" data-i18n="copyClean">Copy cleaned keywords</button>
+        <button type="button" class="btn" id="applyClean" data-i18n="applyClean">Apply cleaned keywords</button>
+      </div>
+    </div>
+    <div class="field" data-field="iosDesc" data-limit="4000">
+      <div class="field-head">
+        <label for="iosDesc" data-i18n="iosDesc">Description</label>
+        <div class="counter"><span class="nums">0 / 4000</span><span class="remain"></span></div>
+      </div>
+      <textarea id="iosDesc" class="tall"></textarea>
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <div class="row-actions"><button type="button" class="btn copy" data-copy="iosDesc" data-i18n="copy">Copy</button></div>
+    </div>
+    <div class="row-actions">
+      <button type="button" class="btn primary" id="copyIosAll" data-i18n="copyAllIos">Copy all App Store fields</button>
+    </div>
+  </div>
+
+  <div id="panelPlay" class="panel" role="tabpanel" aria-labelledby="tabPlay" hidden>
+    <div class="field" data-field="playTitle" data-limit="30">
+      <div class="field-head">
+        <label for="playTitle" data-i18n="playTitle">Title</label>
+        <div class="counter"><span class="nums">0 / 30</span><span class="remain"></span></div>
+      </div>
+      <input id="playTitle" maxlength="200" autocomplete="off">
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <div class="row-actions"><button type="button" class="btn copy" data-copy="playTitle" data-i18n="copy">Copy</button></div>
+    </div>
+    <div class="field" data-field="playShort" data-limit="80">
+      <div class="field-head">
+        <label for="playShort" data-i18n="playShort">Short description</label>
+        <div class="counter"><span class="nums">0 / 80</span><span class="remain"></span></div>
+      </div>
+      <textarea id="playShort"></textarea>
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <div class="row-actions"><button type="button" class="btn copy" data-copy="playShort" data-i18n="copy">Copy</button></div>
+    </div>
+    <div class="field" data-field="playFull" data-limit="4000">
+      <div class="field-head">
+        <label for="playFull" data-i18n="playFull">Full description</label>
+        <div class="counter"><span class="nums">0 / 4000</span><span class="remain"></span></div>
+      </div>
+      <textarea id="playFull" class="tall"></textarea>
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <div class="row-actions"><button type="button" class="btn copy" data-copy="playFull" data-i18n="copy">Copy</button></div>
+    </div>
+    <div class="row-actions">
+      <button type="button" class="btn primary" id="copyPlayAll" data-i18n="copyAllPlay">Copy all Google Play fields</button>
+    </div>
+  </div>
+
+  <footer class="site">
+    <p><strong data-i18n="footerBy">Made by Stanley J, 10+ years at top tech companies.</strong></p>
+    <p data-i18n="footerCta">Need custom subtitles, ASO or a small web tool?</p>
+    <p class="links">
+      <a href="https://ko-fi.com/stanleyj" rel="noopener noreferrer">Ko-fi</a>
+      <a href="https://github.com/todanley" rel="noopener noreferrer">GitHub</a>
+      <a href="https://www.upwork.com/freelancers/~011fabd9dccfd03cd8" rel="noopener noreferrer">Upwork</a>
+</p>
+  </footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function (root) {
+  "use strict";
+
+  function countChars(str) {
+    if (str == null || str === "") return 0;
+    str = String(str);
+    if (typeof Intl !== "undefined" && Intl.Segmenter) {
+      var seg = countChars._seg || (countChars._seg = new Intl.Segmenter("zh", { granularity: "grapheme" }));
+      var n = 0;
+      for (var s of seg.segment(str)) n++;
+      return n;
+    }
+    return Array.from(str).length;
+  }
+
+  var FIELDS = {
+    ios: [
+      { id: "iosName", limit: 30, kind: "input" },
+      { id: "iosSubtitle", limit: 30, kind: "input" },
+      { id: "iosPromo", limit: 170, kind: "text" },
+      { id: "iosKeywords", limit: 100, kind: "text", keywords: true },
+      { id: "iosDesc", limit: 4000, kind: "text" }
+    ],
+    play: [
+      { id: "playTitle", limit: 30, kind: "input" },
+      { id: "playShort", limit: 80, kind: "text" },
+      { id: "playFull", limit: 4000, kind: "text" }
+    ]
+  };
+
+  function checkKeywords(raw) {
+    raw = raw == null ? "" : String(raw);
+    var issues = [];
+    if (raw !== raw.trim()) {
+      issues.push({ code: "trim", key: "kwTrim" });
+    }
+    if (/  +/.test(raw)) {
+      issues.push({ code: "doubleSpace", key: "kwDoubleSpace" });
+    }
+    if (/,\s|\s,/.test(raw)) {
+      issues.push({ code: "spaceAroundComma", key: "kwSpaceAroundComma" });
+    }
+    if (/\s/.test(raw) && !issues.some(function (i) { return i.code === "spaceAroundComma" || i.code === "trim" || i.code === "doubleSpace"; })) {
+      issues.push({ code: "whitespace", key: "kwWhitespace" });
+    } else if (/\s/.test(raw) && !issues.some(function (i) { return i.key === "kwWhitespace" || i.key === "kwSpaceAroundComma" || i.key === "kwTrim" || i.key === "kwDoubleSpace"; })) {
+      issues.push({ code: "whitespace", key: "kwWhitespace" });
+    }
+    // Always mention leftover internal spaces in a token (e.g. "photo edit")
+    if (/[^,\s]\s+[^,\s]/.test(raw) && !issues.some(function (i) { return i.code === "whitespace"; })) {
+      issues.push({ code: "whitespace", key: "kwWhitespace" });
+    }
+
+    var parts = raw.split(",");
+    var emptyCount = 0;
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].trim() === "") emptyCount++;
+    }
+    // A trailing/leading comma or doubled comma creates an empty token.
+    // A completely empty field is not an empty-token issue.
+    if (raw.trim() !== "" && emptyCount > 0) {
+      issues.push({ code: "emptyToken", key: "kwEmptyToken", params: { count: emptyCount } });
+    }
+
+    var tokens = [];
+    for (var j = 0; j < parts.length; j++) {
+      var tok = parts[j].trim();
+      if (tok) tokens.push(tok);
+    }
+    var seen = Object.create(null);
+    var dups = [];
+    var dupSet = Object.create(null);
+    for (var k = 0; k < tokens.length; k++) {
+      var key = tokens[k].toLocaleLowerCase();
+      if (seen[key]) {
+        if (!dupSet[key]) {
+          dups.push(tokens[k]);
+          dupSet[key] = true;
+        }
+      } else {
+        seen[key] = true;
+      }
+    }
+    if (dups.length) {
+      issues.push({ code: "duplicate", key: "kwDuplicate", params: { list: dups.join(", ") } });
+    }
+
+    return {
+      issues: issues,
+      tokens: tokens,
+      cleaned: cleanKeywords(raw),
+      count: countChars(raw),
+      cleanedCount: countChars(cleanKeywords(raw))
+    };
+  }
+
+  function cleanKeywords(raw) {
+    raw = raw == null ? "" : String(raw);
+    var seen = Object.create(null);
+    var out = [];
+    var parts = String(raw).split(",");
+    for (var i = 0; i < parts.length; i++) {
+      var tok = parts[i].trim();
+      if (!tok) continue;
+      var key = tok.toLocaleLowerCase();
+      if (seen[key]) continue;
+      seen[key] = true;
+      out.push(tok);
+    }
+    return out.join(",");
+  }
+
+  function fieldState(value, limit) {
+    var count = countChars(value || "");
+    var remaining = limit - count;
+    var ratio = limit ? count / limit : 0;
+    var level = "ok";
+    if (count > limit) level = "over";
+    else if (ratio >= 0.9) level = "near";
+    return { count: count, limit: limit, remaining: remaining, ratio: ratio, level: level };
+  }
+
+  var api = {
+    countChars: countChars,
+    checkKeywords: checkKeywords,
+    cleanKeywords: cleanKeywords,
+    fieldState: fieldState,
+    FIELDS: FIELDS
+  };
+  root.ASOCounter = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+(function () {
+  "use strict";
+
+  var I18N = {
+    en: {
+      title: "App Store Listing Counter",
+      tagline: "Live character counts for App Store and Google Play listings, with correct CJK counting and an App Store keyword checker. Everything stays in this browser.",
+      docTitle: "App Store Listing Counter",
+      iosName: "Name (30)",
+      iosSubtitle: "Subtitle (30)",
+      iosPromo: "Promotional text (170)",
+      iosKeywords: "Keywords (100)",
+      iosDesc: "Description (4,000)",
+      playTitle: "Title (30)",
+      playShort: "Short description (80)",
+      playFull: "Full description (4,000)",
+      copy: "Copy",
+      copyClean: "Copy cleaned keywords",
+      applyClean: "Apply cleaned keywords",
+      copyAllIos: "Copy all App Store fields",
+      copyAllPlay: "Copy all Google Play fields",
+      left: "{n} left",
+      over: "{n} over",
+      copied: "Copied",
+      copyFail: "Could not copy. You can select the text and copy it yourself.",
+      cleanedLabel: "Cleaned: ",
+      kwTrim: "Leading or trailing spaces will count toward the 100-character limit.",
+      kwDoubleSpace: "There is a double space. Apple counts every space.",
+      kwSpaceAroundComma: "There is a space next to a comma. Apple recommends no spaces, only commas between keywords.",
+      kwWhitespace: "This field contains spaces. Apple recommends comma-separated keywords with no spaces.",
+      kwEmptyToken: "There is an empty keyword (a doubled or trailing comma).",
+      kwDuplicate: "Duplicate keywords: {list}",
+      footerBy: "Made by Stanley J, 10+ years at top tech companies.",
+      footerCta: "Need custom subtitles, ASO or a small web tool?"
+    },
+    zh: {
+      title: "应用商店文案计数器",
+      tagline: "为 App Store 与 Google Play 上架文案提供实时字数统计，正确计算中日韩字符，并检查 App Store 关键词。全部在你的浏览器里完成。",
+      docTitle: "应用商店文案计数器",
+      iosName: "应用名称（30）",
+      iosSubtitle: "副标题（30）",
+      iosPromo: "宣传文本（170）",
+      iosKeywords: "关键词（100）",
+      iosDesc: "描述（4,000）",
+      playTitle: "应用标题（30）",
+      playShort: "简短介绍（80）",
+      playFull: "完整介绍（4,000）",
+      copy: "复制",
+      copyClean: "复制清理后的关键词",
+      applyClean: "应用清理后的关键词",
+      copyAllIos: "复制全部 App Store 字段",
+      copyAllPlay: "复制全部 Google Play 字段",
+      left: "剩余 {n}",
+      over: "超出 {n}",
+      copied: "已复制",
+      copyFail: "无法复制，请自行选中文本再复制。",
+      cleanedLabel: "清理后：",
+      kwTrim: "开头或结尾的空格也会计入 100 个字符的上限。",
+      kwDoubleSpace: "出现了连续空格。Apple 会把每个空格都计入字数。",
+      kwSpaceAroundComma: "逗号旁边有空格。Apple 建议关键词之间只用逗号、不要空格。",
+      kwWhitespace: "此栏含有空格。Apple 建议用逗号分隔关键词，不要加空格。",
+      kwEmptyToken: "存在空的关键词（连续逗号或末尾逗号）。",
+      kwDuplicate: "重复的关键词：{list}",
+      footerBy: "由 Stanley J 制作，曾在顶级科技公司工作超过十年。",
+      footerCta: "需要定制字幕、应用商店文案或一个小网页工具？"
+    }
+  };
+
+  var lang = "en";
+  var store = "ios";
+
+  function t(key, params) {
+    var dict = I18N[lang] || I18N.en;
+    var s = dict[key] || I18N.en[key] || key;
+    return s.replace(/\{(\w+)\}/g, function (_, k) {
+      return params && params[k] != null ? String(params[k]) : "";
+    });
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang === "zh" ? "zh-Hans" : "en";
+    document.title = t("docTitle");
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      el.textContent = t(el.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll(".lang-toggle button").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-lang") === lang ? "true" : "false");
+    });
+    refreshAll();
+  }
+
+  function setStore(next) {
+    store = next;
+    document.body.setAttribute("data-store", store);
+    document.getElementById("panelIos").classList.toggle("active", store === "ios");
+    document.getElementById("panelPlay").classList.toggle("active", store === "play");
+    document.getElementById("panelIos").hidden = store !== "ios";
+    document.getElementById("panelPlay").hidden = store !== "play";
+    document.getElementById("tabIos").setAttribute("aria-selected", store === "ios" ? "true" : "false");
+    document.getElementById("tabPlay").setAttribute("aria-selected", store === "play" ? "true" : "false");
+  }
+
+  function refreshField(el) {
+    var id = el.getAttribute("data-field");
+    var limit = Number(el.getAttribute("data-limit"));
+    var input = document.getElementById(id);
+    var state = ASOCounter.fieldState(input.value, limit);
+    el.classList.remove("ok", "near", "over");
+    el.classList.add(state.level);
+    el.querySelector(".nums").textContent = state.count + " / " + state.limit;
+    var remain = el.querySelector(".remain");
+    remain.textContent = state.remaining >= 0 ? t("left", { n: state.remaining }) : t("over", { n: Math.abs(state.remaining) });
+    var bar = el.querySelector(".bar > span");
+    bar.style.width = Math.min(100, state.ratio * 100) + "%";
+    if (id === "iosKeywords") refreshKeywords(input.value);
+  }
+
+  function refreshKeywords(raw) {
+    var report = ASOCounter.checkKeywords(raw);
+    var list = document.getElementById("kwIssues");
+    var cleaned = document.getElementById("kwCleaned");
+    list.innerHTML = "";
+    report.issues.forEach(function (issue) {
+      var li = document.createElement("li");
+      if (issue.code === "duplicate") li.className = "dup";
+      li.textContent = t(issue.key, issue.params);
+      list.appendChild(li);
+    });
+    if (raw && report.cleaned !== raw) {
+      cleaned.className = "cleaned show";
+      cleaned.textContent = t("cleanedLabel") + report.cleaned + "  (" + report.cleanedCount + "/100)";
+    } else {
+      cleaned.className = "cleaned";
+      cleaned.textContent = "";
+    }
+    window.__lastKeywordReport = report;
+  }
+
+  function refreshAll() {
+    document.querySelectorAll(".field").forEach(refreshField);
+  }
+
+  function toast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove("show"); }, 1600);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { toast(t("copied")); }).catch(fallback);
+    }
+    return fallback();
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        toast(t("copied"));
+        return Promise.resolve();
+      } catch (e) {
+        toast(t("copyFail"));
+        return Promise.reject(e);
+      } finally {
+        ta.remove();
+      }
+    }
+  }
+
+  function fieldLabel(id) {
+    var map = {
+      iosName: "iosName", iosSubtitle: "iosSubtitle", iosPromo: "iosPromo",
+      iosKeywords: "iosKeywords", iosDesc: "iosDesc",
+      playTitle: "playTitle", playShort: "playShort", playFull: "playFull"
+    };
+    return t(map[id] || id);
+  }
+
+  function copyAll(ids) {
+    var chunks = ids.map(function (id) {
+      return fieldLabel(id) + "\n" + (document.getElementById(id).value || "");
+    });
+    return copyText(chunks.join("\n\n"));
+  }
+
+  function bind() {
+    document.querySelectorAll(".lang-toggle button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        lang = btn.getAttribute("data-lang");
+        try { localStorage.setItem("aso-counter-lang", lang); } catch (e) {}
+        applyLang();
+      });
+    });
+    document.getElementById("tabIos").addEventListener("click", function () { setStore("ios"); });
+    document.getElementById("tabPlay").addEventListener("click", function () { setStore("play"); });
+    document.querySelectorAll(".field input, .field textarea").forEach(function (input) {
+      input.addEventListener("input", function () {
+        refreshField(input.closest(".field"));
+      });
+    });
+    document.querySelectorAll(".copy").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-copy");
+        copyText(document.getElementById(id).value || "");
+      });
+    });
+    document.getElementById("cleanKw").addEventListener("click", function () {
+      copyText(ASOCounter.cleanKeywords(document.getElementById("iosKeywords").value || ""));
+    });
+    document.getElementById("applyClean").addEventListener("click", function () {
+      var el = document.getElementById("iosKeywords");
+      el.value = ASOCounter.cleanKeywords(el.value || "");
+      refreshField(el.closest(".field"));
+    });
+    document.getElementById("copyIosAll").addEventListener("click", function () {
+      copyAll(["iosName", "iosSubtitle", "iosPromo", "iosKeywords", "iosDesc"]);
+    });
+    document.getElementById("copyPlayAll").addEventListener("click", function () {
+      copyAll(["playTitle", "playShort", "playFull"]);
+    });
+    try {
+      var saved = localStorage.getItem("aso-counter-lang");
+      if (saved === "zh" || saved === "en") lang = saved;
+    } catch (e) {}
+    applyLang();
+    setStore("ios");
+  }
+
+  window.ASO_UI = {
+    setLang: function (l) { lang = l; applyLang(); },
+    getLang: function () { return lang; },
+    setStore: setStore,
+    refreshAll: refreshAll,
+    copyText: copyText,
+    t: t
+  };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
+})();
+
+</script>
+</body>
+</html>
