@@ -19,4 +19,4 @@ A free, in-browser counter for store listing copy. Nothing is uploaded: the text
 3. For App Store keywords, enter comma-separated terms. If spaces or duplicates appear, use **Apply cleaned keywords** or **Copy cleaned keywords**
 4. Use **Copy** on any field when you are ready to paste into App Store Connect or Play Console
 
-Need custom subtitles, ASO or a small web tool? [Ko-fi](https://ko-fi.com/stanleyj) · [GitHub](https://github.com/todanley) · [Upwork](https://www.upwork.com/freelancers/~011fabd9dccfd03cd8)
+Need custom subtitles, ASO or a small web tool? [GitHub](https://github.com/todanley) · [Upwork](https://www.upwork.com/freelancers/~011fabd9dccfd03cd8)
